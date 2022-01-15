@@ -6,24 +6,24 @@ public class MappedSubject<LocalOutput,Failure>: Subject where Failure:Error {
     
     public typealias Output = LocalOutput
     
-    init<Global>(passthroughSubject:PassthroughSubject<Global,Failure>, f:@escaping (LocalOutput) -> Global ,finverse:@escaping (Global) -> LocalOutput?){
+    init<Global,S>(subject:S, f:@escaping (LocalOutput) -> Global ,finverse:@escaping (Global) -> LocalOutput?) where S:Subject, Failure == S.Failure, Global == S.Output {
 
         self._send = { value in
             let global = f(value)
-            passthroughSubject.send(global)
+            subject.send(global)
         }
         
         self._sendCompletion = { completion in
-            passthroughSubject.send(completion: completion)
+            subject.send(completion: completion)
         }
         
         self._sendSubscription = { subscription in
-            passthroughSubject.send(subscription:subscription)
+            subject.send(subscription:subscription)
         }
         
         self._receive = { subscriber in
             let globalSubscriber = GlobalSubscriber<Global>(localSubscriber: subscriber, finverse: finverse)
-            passthroughSubject.receive(subscriber: globalSubscriber)
+            subject.receive(subscriber: globalSubscriber)
         }
     }
     
