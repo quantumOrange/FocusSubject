@@ -2,47 +2,61 @@ import Combine
 
 @available(iOS 13.0, *)
 @available(macOS 10.15, *)
-class MappedSubject<Local,Global,F>: Subject  where F:Error {
+public class MappedSubject<LocalOutput,Failure>: Subject where Failure:Error {
     
-    typealias Output = Local
-    typealias Failure = F
+    public typealias Output = LocalOutput
     
-    let passthroughSubject:PassthroughSubject<Global,Failure>
-    let f:(Local) -> Global
-    let finverse:(Global) -> Local?
-    
-    init(subject:PassthroughSubject<Global,Failure>, f:@escaping (Local) -> Global ,finverse:@escaping (Global) -> Local?){
-        self.passthroughSubject = subject
-        self.f = f
-        self.finverse = finverse
-    }
-    
-    func send(_ value: Output) {
-        let global = f(value)
-        passthroughSubject.send(global)
-    }
-    
-    func send(completion: Subscribers.Completion<Failure>) {
-        passthroughSubject.send(completion:completion)
-    }
-    
-    func send(subscription: Subscription) {
-        passthroughSubject.send(subscription:subscription)
-    }
-     
-    func receive<S>(subscriber: S) where S : Subscriber, Failure == S.Failure, Output == S.Input{
-        let globalSubscriber = GlobalSubscriber(localSubscriber: subscriber, finverse: finverse)
-       passthroughSubject.receive(subscriber: globalSubscriber)
-    }
-    
-    class GlobalSubscriber<S>: Subscriber where S : Subscriber, Failure == S.Failure, Output == S.Input{
-       
-        typealias Input = Global
-        typealias Failure = F
-        let localSubscriber:S
-        let finverse:(Global) -> Local?
+    init<Global>(passthroughSubject:PassthroughSubject<Global,Failure>, f:@escaping (LocalOutput) -> Global ,finverse:@escaping (Global) -> LocalOutput?){
+
+        self._send = { value in
+            let global = f(value)
+            passthroughSubject.send(global)
+        }
         
-        init(localSubscriber:S, finverse:@escaping (Global) -> Local?){
+        self._sendCompletion = { completion in
+            passthroughSubject.send(completion: completion)
+        }
+        
+        self._sendSubscription = { subscription in
+            passthroughSubject.send(subscription:subscription)
+        }
+        
+        self._receive = { subscriber in
+            let globalSubscriber = GlobalSubscriber<Global>(localSubscriber: subscriber, finverse: finverse)
+            passthroughSubject.receive(subscriber: globalSubscriber)
+        }
+    }
+    
+    private var _send:(LocalOutput) -> Void
+    
+    public func send(_ value: Output) {
+        _send(value)
+    }
+    
+    private var _sendCompletion:(Subscribers.Completion<Failure>) -> Void
+    
+    public func send(completion: Subscribers.Completion<Failure>) {
+        _sendCompletion(completion)
+    }
+    
+    private var _sendSubscription:(Subscription)-> Void
+    
+    public func send(subscription: Subscription) {
+        _sendSubscription(subscription)
+    }
+    
+    private var _receive:(AnySubscriber<Output,Failure>) -> Void
+    
+    public func receive<S>(subscriber: S) where S : Subscriber, Failure == S.Failure, LocalOutput == S.Input{
+        _receive(AnySubscriber(subscriber))
+    }
+        
+    private class GlobalSubscriber<Input>: Subscriber {
+       
+        private let localSubscriber:AnySubscriber<LocalOutput,Failure>
+        private let finverse:(Input) -> LocalOutput?
+        
+        fileprivate init(localSubscriber:AnySubscriber<LocalOutput, Failure>, finverse:@escaping (Input) -> LocalOutput?){
             self.localSubscriber = localSubscriber
             self.finverse = finverse
         }
@@ -51,7 +65,7 @@ class MappedSubject<Local,Global,F>: Subject  where F:Error {
             localSubscriber.receive(subscription: subscription)
         }
 
-        func receive(_ input: Global) -> Subscribers.Demand {
+        func receive(_ input: Input) -> Subscribers.Demand {
             if let localInput = finverse(input) {
                 return localSubscriber.receive(localInput)
             }
