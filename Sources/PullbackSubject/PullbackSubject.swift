@@ -2,14 +2,14 @@ import Combine
 
 @available(iOS 13.0, *)
 @available(macOS 10.15, *)
-public class MappedSubject<LocalOutput,Failure>: Subject where Failure:Error {
+public class PullbackSubject<LocalOutput,Failure>: Subject where Failure:Error {
     
     public typealias Output = LocalOutput
     
-    init<Global,S>(subject:S, f:@escaping (LocalOutput) -> Global ,finverse:@escaping (Global) -> LocalOutput?) where S:Subject, Failure == S.Failure, Global == S.Output {
+    init<Global,S>(subject:S, send:@escaping (LocalOutput) -> Global ,receive:@escaping (Global) -> LocalOutput?) where S:Subject, Failure == S.Failure, Global == S.Output {
 
         self._send = { value in
-            let global = f(value)
+            let global = send(value)
             subject.send(global)
         }
         
@@ -22,7 +22,7 @@ public class MappedSubject<LocalOutput,Failure>: Subject where Failure:Error {
         }
         
         self._receive = { subscriber in
-            let globalSubscriber = GlobalSubscriber<Global>(localSubscriber: subscriber, finverse: finverse)
+            let globalSubscriber = GlobalSubscriber<Global>(localSubscriber: subscriber, receive:receive)
             subject.receive(subscriber: globalSubscriber)
         }
     }
@@ -54,11 +54,11 @@ public class MappedSubject<LocalOutput,Failure>: Subject where Failure:Error {
     private class GlobalSubscriber<Input>: Subscriber {
        
         private let localSubscriber:AnySubscriber<LocalOutput,Failure>
-        private let finverse:(Input) -> LocalOutput?
+        private let receive:(Input) -> LocalOutput?
         
-        fileprivate init(localSubscriber:AnySubscriber<LocalOutput, Failure>, finverse:@escaping (Input) -> LocalOutput?){
+        fileprivate init(localSubscriber:AnySubscriber<LocalOutput, Failure>, receive:@escaping (Input) -> LocalOutput?){
             self.localSubscriber = localSubscriber
-            self.finverse = finverse
+            self.receive = receive
         }
         
         func receive(subscription: Subscription) {
@@ -66,7 +66,7 @@ public class MappedSubject<LocalOutput,Failure>: Subject where Failure:Error {
         }
 
         func receive(_ input: Input) -> Subscribers.Demand {
-            if let localInput = finverse(input) {
+            if let localInput = receive(input) {
                 return localSubscriber.receive(localInput)
             }
             return .none
