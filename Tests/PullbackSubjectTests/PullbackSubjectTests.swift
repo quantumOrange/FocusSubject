@@ -56,8 +56,7 @@ final class PullbackSubjectTests: XCTestCase {
         XCTAssert(localResults.count == 3)
         
         // We expect that both of the values sent to localSubject, and
-        // the  both the values sen to global to end up in globalResults
+        // both the values sent to globalSubject to end up in globalResults
         XCTAssert(globalResults.count == 4)
-        
     }
 }
