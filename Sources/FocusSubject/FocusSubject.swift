@@ -2,9 +2,13 @@ import Combine
 
 @available(iOS 13.0, *)
 @available(macOS 10.15, *)
-public class PullbackSubject<LocalOutput,Failure>: Subject where Failure:Error {
+public class FocusSubject<LocalOutput,Failure>: Subject where Failure:Error {
     
     public typealias Output = LocalOutput
+    
+    public convenience init() {
+        self.init(subject:PassthroughSubject<LocalOutput,Failure>(), send:{$0}, receive: {$0})
+    }
     
     init<Global,S>(subject:S, send:@escaping (LocalOutput) -> Global ,receive:@escaping (Global) -> LocalOutput?) where S:Subject, Failure == S.Failure, Global == S.Output {
 

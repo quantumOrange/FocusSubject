@@ -1,8 +1,8 @@
 import XCTest
-@testable import PullbackSubject
+@testable import FocusSubject
 import Combine
 
-final class PullbackSubjectTests: XCTestCase {
+final class FocusSubjectTests: XCTestCase {
     
     enum GlobalAction {
         case local(LocalAction)
@@ -15,11 +15,11 @@ final class PullbackSubjectTests: XCTestCase {
     }
     
     @available(iOS 13.0, *)
-    func testExample() throws {
+    func testSubject() throws {
         
         let globalSubject = PassthroughSubject<GlobalAction,Never>()
         
-        let localSubject = globalSubject.pullback(send: { la in
+        let localSubject = globalSubject.focus(send: { la in
                 .local(la)
         }, receive: { ga in
             if case let GlobalAction.local(la) = ga {
